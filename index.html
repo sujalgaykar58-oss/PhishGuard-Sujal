@@ -1,0 +1,553 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>PhishGuard — URL Threat Detector | Sujal</title>
+  <link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Outfit:wght@300;400;600;800&display=swap" rel="stylesheet"/>
+  <style>
+    :root {
+      --bg: #080c10;
+      --surface: #0d1117;
+      --border: #1e2d3d;
+      --accent: #00ffe0;
+      --danger: #ff3c5a;
+      --warn: #ffb627;
+      --safe: #00e676;
+      --text: #c9d1d9;
+      --muted: #4a5568;
+      --glow: 0 0 20px rgba(0,255,224,0.25);
+    }
+
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'Outfit', sans-serif;
+      min-height: 100vh;
+      overflow-x: hidden;
+    }
+
+    /* Animated grid background */
+    body::before {
+      content: '';
+      position: fixed;
+      inset: 0;
+      background-image:
+        linear-gradient(rgba(0,255,224,0.03) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(0,255,224,0.03) 1px, transparent 1px);
+      background-size: 40px 40px;
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    /* Scanline effect */
+    body::after {
+      content: '';
+      position: fixed;
+      inset: 0;
+      background: repeating-linear-gradient(
+        0deg,
+        transparent,
+        transparent 2px,
+        rgba(0,0,0,0.05) 2px,
+        rgba(0,0,0,0.05) 4px
+      );
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    .container {
+      position: relative;
+      z-index: 1;
+      max-width: 820px;
+      margin: 0 auto;
+      padding: 60px 24px 80px;
+    }
+
+    /* Header */
+    header {
+      text-align: center;
+      margin-bottom: 56px;
+      animation: fadeDown 0.7s ease both;
+    }
+
+    .logo-tag {
+      font-family: 'Share Tech Mono', monospace;
+      font-size: 11px;
+      letter-spacing: 4px;
+      color: var(--accent);
+      text-transform: uppercase;
+      margin-bottom: 16px;
+      opacity: 0.8;
+    }
+
+    header h1 {
+      font-size: clamp(2.4rem, 6vw, 4rem);
+      font-weight: 800;
+      letter-spacing: -1px;
+      line-height: 1.1;
+      color: #fff;
+    }
+
+    header h1 span {
+      color: var(--accent);
+      text-shadow: 0 0 30px rgba(0,255,224,0.5);
+    }
+
+    header p {
+      margin-top: 16px;
+      font-size: 1rem;
+      color: var(--muted);
+      font-weight: 300;
+      letter-spacing: 0.3px;
+    }
+
+    /* Scanner card */
+    .scanner-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 40px;
+      margin-bottom: 32px;
+      box-shadow: 0 0 60px rgba(0,255,224,0.05), 0 20px 40px rgba(0,0,0,0.4);
+      animation: fadeUp 0.7s 0.15s ease both;
+    }
+
+    .input-label {
+      font-family: 'Share Tech Mono', monospace;
+      font-size: 11px;
+      letter-spacing: 3px;
+      color: var(--accent);
+      text-transform: uppercase;
+      margin-bottom: 12px;
+      display: block;
+    }
+
+    .input-row {
+      display: flex;
+      gap: 12px;
+      align-items: stretch;
+    }
+
+    input[type="text"] {
+      flex: 1;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 16px 20px;
+      font-size: 1rem;
+      font-family: 'Share Tech Mono', monospace;
+      color: var(--text);
+      outline: none;
+      transition: border-color 0.2s, box-shadow 0.2s;
+    }
+
+    input[type="text"]:focus {
+      border-color: var(--accent);
+      box-shadow: var(--glow);
+    }
+
+    input[type="text"]::placeholder { color: var(--muted); }
+
+    .scan-btn {
+      background: var(--accent);
+      color: #000;
+      border: none;
+      border-radius: 10px;
+      padding: 16px 28px;
+      font-family: 'Outfit', sans-serif;
+      font-weight: 700;
+      font-size: 0.95rem;
+      letter-spacing: 0.5px;
+      cursor: pointer;
+      transition: all 0.2s;
+      white-space: nowrap;
+    }
+
+    .scan-btn:hover {
+      background: #fff;
+      transform: translateY(-1px);
+      box-shadow: 0 8px 20px rgba(0,255,224,0.3);
+    }
+
+    .scan-btn:active { transform: translateY(0); }
+    .scan-btn:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
+
+    /* Result area */
+    #result {
+      animation: fadeUp 0.4s ease both;
+    }
+
+    .result-card {
+      border-radius: 14px;
+      padding: 28px 32px;
+      border: 1px solid;
+      margin-bottom: 24px;
+    }
+
+    .result-card.safe {
+      background: rgba(0,230,118,0.06);
+      border-color: rgba(0,230,118,0.3);
+    }
+
+    .result-card.danger {
+      background: rgba(255,60,90,0.07);
+      border-color: rgba(255,60,90,0.35);
+    }
+
+    .result-card.warning {
+      background: rgba(255,182,39,0.07);
+      border-color: rgba(255,182,39,0.35);
+    }
+
+    .verdict-row {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      margin-bottom: 8px;
+    }
+
+    .verdict-icon {
+      font-size: 2rem;
+      line-height: 1;
+    }
+
+    .verdict-label {
+      font-size: 1.4rem;
+      font-weight: 800;
+      letter-spacing: -0.3px;
+    }
+
+    .verdict-label.safe { color: var(--safe); }
+    .verdict-label.danger { color: var(--danger); }
+    .verdict-label.warning { color: var(--warn); }
+
+    .verdict-url {
+      font-family: 'Share Tech Mono', monospace;
+      font-size: 0.8rem;
+      color: var(--muted);
+      word-break: break-all;
+      margin-bottom: 20px;
+    }
+
+    .score-bar-wrap {
+      margin-bottom: 20px;
+    }
+
+    .score-label {
+      display: flex;
+      justify-content: space-between;
+      font-size: 0.8rem;
+      color: var(--muted);
+      margin-bottom: 6px;
+      font-family: 'Share Tech Mono', monospace;
+    }
+
+    .score-bar {
+      height: 6px;
+      background: var(--border);
+      border-radius: 99px;
+      overflow: hidden;
+    }
+
+    .score-fill {
+      height: 100%;
+      border-radius: 99px;
+      transition: width 0.8s cubic-bezier(.4,0,.2,1);
+    }
+
+    .score-fill.safe { background: var(--safe); }
+    .score-fill.danger { background: var(--danger); }
+    .score-fill.warning { background: var(--warn); }
+
+    /* Indicators grid */
+    .indicators {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+      gap: 12px;
+      margin-top: 4px;
+    }
+
+    .indicator {
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+< truncated lines 277-466 >
+        <p>Fake Google, PayPal, Amazon, banking sites</p>
+      </div>
+      <div class="feature-item">
+        <div class="icon">🔒</div>
+        <h4>HTTPS Check</h4>
+        <p>Missing SSL certificates & insecure connections</p>
+      </div>
+      <div class="feature-item">
+        <div class="icon">🌐</div>
+        <h4>Suspicious TLDs</h4>
+        <p>High-risk domain extensions used by attackers</p>
+      </div>
+      <div class="feature-item">
+        <div class="icon">📊</div>
+        <h4>Risk Scoring</h4>
+        <p>Weighted threat score with detailed breakdown</p>
+      </div>
+      <div class="feature-item">
+        <div class="icon">⚡</div>
+        <h4>Instant Analysis</h4>
+        <p>Real-time client-side detection engine</p>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+  let totalScanned = 0;
+  let totalThreats = 0;
+
+  // Detection engine
+  const SUSPICIOUS_KEYWORDS = [
+    'login', 'signin', 'verify', 'secure', 'account', 'update',
+    'banking', 'paypal', 'amazon', 'google', 'microsoft', 'apple',
+    'netflix', 'facebook', 'instagram', 'password', 'confirm',
+    'wallet', 'crypto', 'bitcoin', 'prize', 'winner', 'free', 'click'
+  ];
+
+  const BRAND_SPOOF = [
+    'paypa1', 'g00gle', 'amaz0n', 'micros0ft', 'app1e', 'netf1ix',
+    'faceb00k', 'lnstagram', 'paypai', 'arnazon', 'miicrosoft'
+  ];
+
+  const SUSPICIOUS_TLDS = [
+    '.tk', '.ml', '.ga', '.cf', '.gq', '.xyz', '.top', '.click',
+    '.loan', '.download', '.accountant', '.stream', '.gdn', '.bid'
+  ];
+
+  const TRUSTED_DOMAINS = [
+    'google.com', 'gmail.com', 'youtube.com', 'facebook.com',
+    'amazon.com', 'microsoft.com', 'apple.com', 'github.com',
+    'wikipedia.org', 'reddit.com', 'twitter.com', 'linkedin.com',
+    'instagram.com', 'netflix.com', 'paypal.com', 'stackoverflow.com'
+  ];
+
+  function analyzeURL() {
+    const input = document.getElementById('urlInput').value.trim();
+    const resultDiv = document.getElementById('result');
+
+    if (!input) {
+      resultDiv.innerHTML = `<div class="result-card warning">
+        <div class="verdict-row"><span class="verdict-icon">⚠️</span>
+        <span class="verdict-label warning">Please enter a URL</span></div>
+      </div>`;
+      return;
+    }
+
+    // Show loading
+    resultDiv.innerHTML = `<div class="loading">
+      <div class="spinner"></div>
+      <p>ANALYZING THREAT VECTORS...</p>
+    </div>`;
+
+    document.getElementById('scanBtn').disabled = true;
+
+    setTimeout(() => {
+      const analysis = runDetection(input);
+      displayResult(input, analysis);
+      document.getElementById('scanBtn').disabled = false;
+
+      totalScanned++;
+      document.getElementById('stat-scanned').textContent = totalScanned;
+      if (analysis.verdict === 'danger') {
+        totalThreats++;
+        document.getElementById('stat-threats').textContent = totalThreats;
+      }
+    }, 1400);
+  }
+
+  function runDetection(url) {
+    let riskScore = 0;
+    const flags = [];
+    const info = [];
+
+    // Normalize
+    let normalizedURL = url.toLowerCase();
+    if (!normalizedURL.startsWith('http')) normalizedURL = 'http://' + normalizedURL;
+
+    let parsed;
+    try {
+      parsed = new URL(normalizedURL);
+    } catch(e) {
+      return {
+        verdict: 'danger',
+        score: 90,
+        flags: [{ color: 'red', label: 'INVALID URL', detail: 'Cannot parse URL structure' }],
+        info: []
+      };
+    }
+
+    const hostname = parsed.hostname.toLowerCase();
+    const fullURL = normalizedURL;
+
+    // Check trusted domains
+    const isTrusted = TRUSTED_DOMAINS.some(d => hostname === d || hostname.endsWith('.' + d));
+    if (isTrusted) {
+      info.push({ color: 'green', label: 'TRUSTED DOMAIN', detail: 'Known legitimate website' });
+    }
+
+    // 1. No HTTPS
+    if (parsed.protocol === 'http:') {
+      riskScore += 20;
+      flags.push({ color: 'yellow', label: 'NO HTTPS', detail: 'Connection is not encrypted' });
+    } else {
+      info.push({ color: 'green', label: 'HTTPS SECURE', detail: 'Encrypted connection detected' });
+    }
+
+    // 2. IP address instead of domain
+    if (/^(\d{1,3}\.){3}\d{1,3}$/.test(hostname)) {
+      riskScore += 40;
+      flags.push({ color: 'red', label: 'IP ADDRESS URL', detail: 'Legitimate sites use domain names' });
+    }
+
+    // 3. Suspicious TLD
+    const suspTLD = SUSPICIOUS_TLDS.find(tld => hostname.endsWith(tld));
+    if (suspTLD) {
+      riskScore += 25;
+      flags.push({ color: 'red', label: 'SUSPICIOUS TLD', detail: `"${suspTLD}" is commonly used in phishing` });
+    }
+
+    // 4. Brand spoofing
+    const spoofFound = BRAND_SPOOF.find(s => hostname.includes(s));
+    if (spoofFound) {
+      riskScore += 50;
+      flags.push({ color: 'red', label: 'BRAND SPOOFING', detail: `Fake brand detected: "${spoofFound}"` });
+    }
+
+    // 5. Multiple subdomains
+    const subdomains = hostname.split('.').length - 2;
+    if (subdomains > 2) {
+      riskScore += 15;
+      flags.push({ color: 'yellow', label: 'EXCESSIVE SUBDOMAINS', detail: `${subdomains} subdomains — unusual for legitimate sites` });
+    }
+
+    // 6. Suspicious keywords in URL
+    const foundKeywords = SUSPICIOUS_KEYWORDS.filter(kw =>
+      fullURL.includes(kw) && !isTrusted
+    );
+    if (foundKeywords.length >= 2) {
+      riskScore += Math.min(foundKeywords.length * 8, 30);
+      flags.push({ color: 'yellow', label: 'SUSPICIOUS KEYWORDS', detail: `Found: ${foundKeywords.slice(0,3).join(', ')}` });
+    }
+
+    // 7. Very long URL
+    if (url.length > 100) {
+      riskScore += 15;
+      flags.push({ color: 'yellow', label: 'LONG URL', detail: `${url.length} chars — used to hide true destination` });
+    }
+
+    // 8. URL contains @ symbol (redirect trick)
+    if (url.includes('@')) {
+      riskScore += 35;
+      flags.push({ color: 'red', label: '@ SYMBOL DETECTED', detail: 'Classic phishing redirect trick' });
+    }
+
+    // 9. Double slash in path (redirect)
+    if (parsed.pathname.includes('//')) {
+      riskScore += 20;
+      flags.push({ color: 'red', label: 'DOUBLE SLASH REDIRECT', detail: 'Suspicious path structure' });
+    }
+
+    // 10. Punycode/unicode homoglyph attack
+    if (url.includes('xn--')) {
+      riskScore += 30;
+      flags.push({ color: 'red', label: 'PUNYCODE DETECTED', detail: 'Possible homoglyph/lookalike domain attack' });
+    }
+
+    // 11. URL shortener
+    const shorteners = ['bit.ly', 'tinyurl', 't.co', 'goo.gl', 'ow.ly', 'short.link', 'rb.gy'];
+    if (shorteners.some(s => hostname.includes(s))) {
+      riskScore += 20;
+      flags.push({ color: 'yellow', label: 'URL SHORTENER', detail: 'Hides the real destination URL' });
+    }
+
+    // 12. Numbers in domain (typosquatting)
+    if (/\d/.test(hostname.replace(/\.\w+$/, '')) && !isTrusted) {
+      riskScore += 10;
+      flags.push({ color: 'yellow', label: 'NUMBERS IN DOMAIN', detail: 'Possible typosquatting attempt' });
+    }
+
+    if (isTrusted) riskScore = Math.max(0, riskScore - 40);
+    riskScore = Math.min(riskScore, 100);
+
+    let verdict = 'safe';
+    if (riskScore >= 50) verdict = 'danger';
+    else if (riskScore >= 20) verdict = 'warning';
+
+    if (flags.length === 0 && verdict === 'safe') {
+      info.push({ color: 'green', label: 'NO THREATS FOUND', detail: 'URL appears clean' });
+    }
+
+    return { verdict, score: riskScore, flags, info };
+  }
+
+  function displayResult(url, analysis) {
+    const { verdict, score, flags, info } = analysis;
+
+    const verdictConfig = {
+      safe: { icon: '✅', label: 'SAFE', color: 'safe', barClass: 'safe', msg: 'No significant threats detected.' },
+      warning: { icon: '⚠️', label: 'SUSPICIOUS', color: 'warning', barClass: 'warning', msg: 'Some red flags found. Proceed with caution.' },
+      danger: { icon: '🚨', label: 'PHISHING / DANGER', color: 'danger', barClass: 'danger', msg: 'High threat detected! Do NOT visit this URL.' }
+    };
+
+    const vc = verdictConfig[verdict];
+
+    const allIndicators = [...flags, ...info].map(f => `
+      <div class="indicator">
+        <div class="indicator-dot ${f.color}"></div>
+        <div class="indicator-text">
+          <strong>${f.label}</strong>
+          ${f.detail}
+        </div>
+      </div>
+    `).join('');
+
+    document.getElementById('result').innerHTML = `
+      <div class="result-card ${verdict}" style="animation: fadeUp 0.4s ease both; margin-bottom: 32px;">
+        <div class="verdict-row">
+          <span class="verdict-icon">${vc.icon}</span>
+          <span class="verdict-label ${verdict}">${vc.label}</span>
+        </div>
+        <div class="verdict-url">${url}</div>
+
+        <div class="score-bar-wrap">
+          <div class="score-label">
+            <span>THREAT SCORE</span>
+            <span>${score}/100</span>
+          </div>
+          <div class="score-bar">
+            <div class="score-fill ${vc.barClass}" style="width: 0%" id="scoreFill"></div>
+          </div>
+        </div>
+
+        <p style="font-size:0.88rem; color: var(--muted); margin-bottom: 20px;">${vc.msg}</p>
+
+        <div class="section-title">// analysis breakdown</div>
+        <div class="indicators">${allIndicators || '<div class="indicator"><div class="indicator-dot green"></div><div class="indicator-text"><strong>ALL CLEAR</strong>No suspicious patterns found</div></div>'}</div>
+      </div>
+    `;
+
+    setTimeout(() => {
+      const fill = document.getElementById('scoreFill');
+      if (fill) fill.style.width = score + '%';
+    }, 50);
+  }
+
+  // Enter key support
+  document.addEventListener('DOMContentLoaded', () => {
+    document.getElementById('urlInput').addEventListener('keydown', e => {
+      if (e.key === 'Enter') analyzeURL();
+    });
+  });
+</script>
+</body>
+  </html>
